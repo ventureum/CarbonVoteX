@@ -35,8 +35,8 @@ contract CarbonVoteX {
 
     // @param _pollId the id of poll
     // returns the startBlock, endBlock, pollId token address of the poll.
-    function getPoll (bytes32 _pollId) public view returns (uint _startBlock, uint _endBlock, bytes32 _pollId, address _tokenAddr){
-        Poll memory poll = polls[_pollId];
+    function getPoll (bytes32 _pollId) public view returns (uint _startBlock, uint _endBlock, bytes32 _rpollId, address _tokenAddr){
+        Poll storage poll = polls[_pollId];
         return (poll.startBlock, poll.endBlock, poll.pollId, poll.token);
     }
 
@@ -64,15 +64,15 @@ contract CarbonVoteX {
     // Note that we do not allow re-registrations for the same UUID
     function register(bytes32 _pollId, uint _startBlock, uint _endBlock, address _tokenAddr) public {
         //Check if poll exists.
-        require (!pollExist(_pollId));
+        require (pollExist(_pollId) == false, "Poll already exist");
         // check resonable endBlock and startBlock
-        require (_endBlock > now && _startBlock < _endBlock);
+        require (_endBlock > block.number && _startBlock < _endBlock, "invalid blckTime");
         //Create a new poll and map the poll hashed value to the poll.
         Poll memory poll = Poll({ startBlock: _startBlock,
                                 endBlock: _endBlock,
                                 pollId: _pollId,
                                 token: EIP20Token(_tokenAddr)});
-        polls[_pollId] = poll;
+        polls[_pollId] =poll;
     }
 
     // @param pollId pollId (hash value) of a poll
@@ -102,7 +102,9 @@ contract CarbonVoteX {
     // deduct the total number of votes available by votes
     function vote(bytes32 _pollId, bytes32 _choice, uint _votes) public{
         // poll must exits and not yet expired. 
+
         require (pollExist(_pollId) && !pollExpired(_pollId));
+        
         // voter cannot vote more votes than it has.
         assert (polls[_pollId].availableVotes[msg.sender] - _votes >= 0);
         // deduct voter's available votes from.
@@ -129,7 +131,7 @@ contract CarbonVoteX {
     // @param _pollId of the poll.
     // returns whethere the poll has expired
     function pollExpired(bytes32 _pollId) view public returns (bool){
-        return now >= polls[_pollId].endBlock;
+        return block.number >= polls[_pollId].endBlock;
     }
 
 }
