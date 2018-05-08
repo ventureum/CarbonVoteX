@@ -34,11 +34,10 @@ contract CarbonVoteX {
     }
 
     // @param _pollId the id of poll
-    // returns the startBlock, endBlock and token address of the poll.
-    function getPoll (bytes32 _pollId) public view returns (uint _startBlock, uint _endBlock, address _tokenAddr){
+    // returns the startBlock, endBlock, pollId token address of the poll.
+    function getPoll (bytes32 _pollId) public view returns (uint _startBlock, uint _endBlock, bytes32 _pollId, address _tokenAddr){
         Poll memory poll = polls[_pollId];
-        return (poll.startBlock, poll.endBlock, poll.token);
-
+        return (poll.startBlock, poll.endBlock, poll.pollId, poll.token);
     }
 
     // @param _master address which is able to write votes
@@ -63,7 +62,7 @@ contract CarbonVoteX {
     // @param _endBlock ending block (unix timestamp) of the event
     // register a new poll
     // Note that we do not allow re-registrations for the same UUID
-    function register(bytes32 _pollId, uint _startBlock, uint _endBlock, address _tokenAddr) public isMaster {
+    function register(bytes32 _pollId, uint _startBlock, uint _endBlock, address _tokenAddr) public {
         //Check if poll exists.
         require (!pollExist(_pollId));
         // check resonable endBlock and startBlock

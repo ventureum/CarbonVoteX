@@ -11,14 +11,4 @@ contract('Test_Token', async (accounts)=>{
 		const balance= await tokenInstance.balanceOf("0xa9B0cF09F88B95cE9596524bD15147f8664B85bF");
 		console.log("Balance got:", balance.toString(10));
 	});
-
-
-	it ("Test CarbonVoteX Register", async ()=>{
-		const CarbonVoteXInstance = await CarbonVoteX.deployed();
-		console.log("CarbonVoteX deploed at: ", CarbonVoteXInstance.address);
-		
-
-
-	});
-
-	});
+});
