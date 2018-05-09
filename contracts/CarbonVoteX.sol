@@ -7,7 +7,10 @@ contract CarbonVoteX {
         // voter address => choice => votes
         // choice can be hashed value of voting options
         // e.g. sha3("choice #1"), sha3("choice #2")
-        mapping (address => mapping(bytes32 => uint)) votes;
+        mapping (address => mapping(bytes32 => uint)) voterVotes;
+        // choice => votes
+        mapping (bytes32 => uint) choiceVotes;
+        // voter address => available votes;
         mapping (address => uint) availableVotes;
         //map voter's address to the amount of gas sent
         mapping (address => uint) gasSentByVoter;
@@ -110,18 +113,26 @@ contract CarbonVoteX {
         // deduct voter's available votes from.
         polls[_pollId].availableVotes[msg.sender] -= _votes;
         // place votes to voter's choice. 
-        polls[_pollId].votes[msg.sender][_choice] += _votes;
+        polls[_pollId].voterVotes[msg.sender][_choice] += _votes;
+        // place votes to choiceVotes;
+        polls[_pollId].choiceVotes[_choice] += _votes;
     }
 
+    // @param _pollId pollId (hash value) of a
+    // @param _choice the choice of the poll
+    // returns the number of votes for choice "choice" in poll "pollId"
+    // typically called by other contracts
+    function getVotingResult(bytes32 _pollId, bytes32 _choice) view public returns (uint) {
+        return polls[_pollId].choiceVotes[_choice];
+    }
     // @param pollId pollId (hash value) of a
     // @param voter address of a voter
     // @param choice the choice of the poll
     // returns the number of votes for choice "choice" by "voter" in poll "pollId"
     // typically called by other contracts
-    function getVotingResult(bytes32 _pollId, address _voter, bytes32 _choice) view public returns (uint) {
-        return polls[_pollId].votes[_voter][_choice];
+    function getVotingResultByVoter(bytes32 _pollId, address _voter, bytes32 _choice) view public returns (uint) {
+        return polls[_pollId].voterVotes[_voter][_choice];
     }
-
     // @param _pollId of the poll.
     // returns whethere the poll exists;
     function pollExist(bytes32 _pollId) view public returns(bool) {

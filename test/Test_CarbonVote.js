@@ -9,9 +9,10 @@ contract('Test_CarbonVote', async (accounts)=>{
 
 		console.log("CarbonVoteX deployed at:",CarbonVoteXInstance.address);
 
-		await CarbonVoteXInstance.register("333","444", "30000000", EIP20TokenInstance.address);
-		const poll = await CarbonVoteXInstance.getPoll("333");
-		console.log("pollid: ", poll);
+		await CarbonVoteXInstance.register("10","444", "30000000", EIP20TokenInstance.address);
+		const poll = await CarbonVoteXInstance.getPoll("10");
+		console.log("poll: ", poll);
+		console.log ("Converted pollid :", poll[2].toString(10));
 
 	});
 
@@ -21,7 +22,7 @@ contract('Test_CarbonVote', async (accounts)=>{
 		const EIP20TokenInstance = await EIP20Token.deployed();
 
 		const choice = "11";
-		const pollId = "333";
+		const pollId = "10";
 
 		console.log("In test2 CarbonVoteX deployed at:",CarbonVoteXInstance.address);
 
