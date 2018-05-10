@@ -1,6 +1,5 @@
 pragma solidity ^0.4.23;
-
-import "./EIP20Token.sol";
+import 'openzeppelin-solidity/contracts/token/ERC20/ERC20.sol';
 
 contract CarbonVoteX {
 
@@ -25,7 +24,7 @@ contract CarbonVoteX {
         uint endBlock;
         bytes32 pollId;
         // the ERC20 token used
-        EIP20Token token;
+        ERC20 token;
     }
 
     // associative container of staking events
@@ -91,7 +90,7 @@ contract CarbonVoteX {
         Poll memory poll = Poll({ startBlock: _startBlock,
                                 endBlock: _endBlock,
                                 pollId: _pollId,
-                                token: EIP20Token(_tokenAddr)});
+                                token: ERC20(_tokenAddr)});
         polls[_pollId] =poll;
         emit _Register(msg.sender, _pollId, _startBlock, _endBlock, _tokenAddr);
     }
