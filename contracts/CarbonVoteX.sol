@@ -1,6 +1,8 @@
 pragma solidity ^0.4.23;
+
 import "openzeppelin-solidity/contracts/token/ERC20/ERC20.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
+
 
 contract CarbonVoteX {
 
@@ -44,6 +46,9 @@ contract CarbonVoteX {
 
     // master's address
     address private master;
+
+    // apply SafeMath to uint
+    using SafeMath for uint;
 
     /*
      * Modifiers
@@ -122,7 +127,7 @@ contract CarbonVoteX {
         // poll must exit and has not yet expired. 
         require (pollExist(pollId) && !pollExpired(pollId));
 
-        polls[pollId].availableVotes[voter] += votes; 
+        polls[pollId].availableVotes[voter] = polls[pollId].availableVotes[voter].add(votes); 
         emit _WriteAvailableVotes(msg.sender, pollId, voter, votes);
     }
 
@@ -146,13 +151,16 @@ contract CarbonVoteX {
         require (pollExist(pollId) && !pollExpired(pollId));
         
         // voter cannot vote more votes than it has.
-        require (polls[pollId].availableVotes[msg.sender] - votes >= 0);
+        require (polls[pollId].availableVotes[msg.sender].sub(votes) >= 0);
         // deduct voter's available votes from.
-        polls[pollId].availableVotes[msg.sender] -= votes;
+        polls[pollId].availableVotes[msg.sender] = 
+            polls[pollId].availableVotes[msg.sender].sub(votes);
         // place votes to voter's choice. 
-        polls[pollId].votes[msg.sender][choice] += votes;
+        polls[pollId].votes[msg.sender][choice] = 
+            polls[pollId].votes[msg.sender][choice].add(votes);
         // place votes to totalVotesByChoice;
-        polls[pollId].totalVotesByChoice[choice] += votes;
+        polls[pollId].totalVotesByChoice[choice] = 
+            polls[pollId].totalVotesByChoice[choice].add(votes);
         emit _Vote(msg.sender, pollId, choice, votes);
     }
 
