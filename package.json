@@ -1,0 +1,29 @@
+{
+  "name": "carbonvotex",
+  "version": "1.0.0",
+  "description": "",
+  "main": "truffle-config.js",
+  "directories": {
+    "test": "test"
+  },
+  "dependencies": {
+    "js-sha3": "^0.7.0",
+    "openzeppelin-solidity": "1.9.0",
+    "truffle-hdwallet-provider": "^0.0.5",
+    "web3": "^1.0.0-beta.34"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/InVincible2016/CarbonVoteX.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/InVincible2016/CarbonVoteX/issues"
+  },
+  "homepage": "https://github.com/InVincible2016/CarbonVoteX#readme"
+}

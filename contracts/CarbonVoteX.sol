@@ -1,24 +1,36 @@
 pragma solidity ^0.4.23;
 import "openzeppelin-solidity/contracts/token/ERC20/ERC20.sol";
+import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 
 contract CarbonVoteX {
 
     // events that are emitted after changes.
-    event _Register(address indexed _msgSender, bytes32 _pollId, uint _startBlock, uint _endBlock, address _tokenAddr);
-    event _WriteAvailableVotes (address indexed _msgSender, bytes32 _pollId, address _voter, uint _votes);
-    event _Vote(address indexed _msgSender, bytes32 _pollId, bytes32 _choice, uint _votes);
-    event _SendGas(address indexed _msgSender, bytes32 _pollId);
+    event _Register(
+        address indexed msgSender,
+        bytes32 pollId,
+        uint startBlock,
+        uint endBlock,
+        address tokenAddr
+    );
+    event _WriteAvailableVotes (
+        address indexed msgSender,
+        bytes32 pollId, 
+        address voter, 
+        uint votes
+    );
+    event _Vote(address indexed msgSender, bytes32 pollId,bytes32 choice, uint votes);
+    event _SendGas(address indexed msgSender, bytes32 pollId);
     
     struct Poll {
         // voter address => choice => votes
         // choice can be hashed value of voting options
         // e.g. sha3("choice #1"), sha3("choice #2")
-        mapping (address => mapping(bytes32 => uint)) voterVotes;
+        mapping (address => mapping(bytes32 => uint)) votes;
         // choice => votes
-        mapping (bytes32 => uint) choiceVotes;
+        mapping (bytes32 => uint) totalVotesByChoice;
         // voter address => available votes;
         mapping (address => uint) availableVotes;
-        //map voter's address to the amount of gas sent
+        // map voter's address to the amount of gas sent
         mapping (address => uint) gasSentByVoter;
         uint startBlock;
         uint endBlock;
@@ -27,8 +39,7 @@ contract CarbonVoteX {
         ERC20 token;
     }
 
-    // associative container of staking events
-    // _pollId => PollInfo
+    // pollId => Poll struct
     mapping (bytes32 => Poll) public polls;
 
     // master's address
@@ -42,9 +53,18 @@ contract CarbonVoteX {
         _;
     }
 
-    // @param _pollId the id of poll
-    // returns the startBlock, endBlock, pollId token address of the poll.
-    function getPoll (bytes32 _pollId) public view returns (uint _startBlock, uint _endBlock, bytes32 _rpollId, address _tokenAddr){
+    /*
+     * Constructor
+     */
+    // @param master address which is able to write votes
+    // the master address is owned by a backend server
+    constructor (address _master) public{
+        master = _master;
+    }
+
+    // @param pollId UUID (hash value) of a poll
+    // returns the startBlock, endBlock, pollId and token address of the poll.
+    function getPoll (bytes32 _pollId) public view returns (uint, uint, bytes32, address) {
         //Check if poll exists
         require(pollExist(_pollId));
 
@@ -52,127 +72,128 @@ contract CarbonVoteX {
         return (poll.startBlock, poll.endBlock, poll.pollId, poll.token);
     }
 
-    // @param _master address which is able to write votes
-    // the master address is owned by a backend server
-    constructor (address _master) public{
-        master = _master;
-    }
-
-    // @param _voter the address of the voter
-    // returns the amount of gas remining for _voter
-    function getGasSent(bytes32 _pollId, address _voter) public view returns (uint){
+    // @param pollId UUID (hash value) of a poll
+    // @param voter the address of the voter
+    // returns the amount of gas remining for voter
+    function getGasSent(bytes32 pollId, address voter) public view returns (uint) {
         //Check if poll exists
-        require(pollExist(_pollId));
+        require(pollExist(pollId));
 
-        return polls[_pollId].gasSentByVoter[_voter];
+        return polls[pollId].gasSentByVoter[voter];
     }
 
+    // @param pollId UUID (hash value) of a poll
     // store the amount of gas sent by the voter 
-    function sendGas(bytes32 _pollId) public payable {
-        // poll must exits and not yet expired. 
-        require (pollExist(_pollId) && !pollExpired(_pollId));
+    function sendGas(bytes32 pollId) public payable {
+        // poll must exit and has not yet expired. 
+        require (pollExist(pollId) && !pollExpired(pollId));
 
-        emit _SendGas(msg.sender, _pollId);
-        polls[_pollId].gasSentByVoter[msg.sender] += msg.value;
+        polls[pollId].gasSentByVoter[msg.sender] += msg.value;
+        emit _SendGas(msg.sender, pollId);
     }
 
-    // @param _pollId UUID (hash value) of a poll
-    // @param _startBlock starting block (unix timestamp) of the event
-    // @param _endBlock ending block (unix timestamp) of the event
+    // @param startBlock starting block (unix timestamp) of the event
+    // @param endBlock ending block (unix timestamp) of the event
+    // @param pollId UUID (hash value) of a poll
+    // @param tokenAddr the address of the token
     // register a new poll
     // Note that we do not allow re-registrations for the same UUID
-    function register(bytes32 _pollId, uint _startBlock, uint _endBlock, address _tokenAddr) public {
-        //Check if poll exists.
-        require (pollExist(_pollId) == false);
+    function register(uint startBlock, uint endBlock, bytes32 pollId, address tokenAddr) public {
+        // Check if poll exists.
+        require (!pollExist(pollId));
         // check resonable endBlock and startBlock
-        require (_endBlock > block.number && _startBlock < _endBlock);
-        //Create a new poll and map the poll hashed value to the poll.
-        Poll memory poll = Poll({ startBlock: _startBlock,
-                                endBlock: _endBlock,
-                                pollId: _pollId,
-                                token: ERC20(_tokenAddr)});
-        polls[_pollId] = poll;
-        emit _Register(msg.sender, _pollId, _startBlock, _endBlock, _tokenAddr);
+        require (startBlock > block.number && startBlock < endBlock);
+
+        // Create a new poll and map the poll hashed value to the poll.
+        Poll memory poll = Poll({ 
+            startBlock: startBlock,
+            endBlock: endBlock,
+            pollId: pollId,
+            token: ERC20(tokenAddr)});
+        polls[pollId] = poll;
+        emit _Register(msg.sender, pollId, startBlock, endBlock, tokenAddr);
     }
 
-    // @param pollId pollId (hash value) of a poll
+    // @param pollId UUID (hash value) of a poll
     // @param voter address of a voter    
     // @param votes number of votes to write
     // can only be called by the master address
-    function writeAvailableVotes(bytes32 _pollId, address _voter, uint _votes) public isMaster {
-        // poll must exits and not yet expired. 
-        require (pollExist(_pollId) && !pollExpired(_pollId));
+    function writeAvailableVotes(bytes32 pollId, address voter, uint votes) public isMaster {
+        // poll must exit and has not yet expired. 
+        require (pollExist(pollId) && !pollExpired(pollId));
 
-        polls[_pollId].availableVotes[_voter] += _votes; 
-        emit _WriteAvailableVotes(msg.sender, _pollId, _voter, _votes);
+        polls[pollId].availableVotes[voter] += votes; 
+        emit _WriteAvailableVotes(msg.sender, pollId, voter, votes);
     }
 
-    // @param pollId pollId (hash value) of a poll
+    // @param pollId UUID (hash value) of a poll
     // @param voter address of a voter
     // returns the number of available votes
-    function readAvailableVotes(bytes32 _pollId, address _voter) view public returns (uint){
-        require (pollExist(_pollId));
+    function readAvailableVotes(bytes32 pollId, address voter) public view returns (uint) {
+        require (pollExist(pollId));
 
-        return polls[_pollId].availableVotes[_voter];
+        return polls[pollId].availableVotes[voter];
     }
 
-    // @param _pollId UUID (hash value) of a poll
-    // @param _voteMeta vote meta data
-    // @param _votes number of votes to redeem for voteMeta
+    // @param pollId UUID (hash value) of a poll
+    // @param choice the choice of votes
+    // @param votes number of votes to redeem for choice
     // After the poll finishes, and have already called registerVotes()
     // vote for "choice"
     // deduct the total number of votes available by votes
-    function vote(bytes32 _pollId, bytes32 _choice, uint _votes) public{
+    function vote(bytes32 pollId, bytes32 choice, uint votes) public {
         // poll must exits and not yet expired. 
-        require (pollExist(_pollId) && !pollExpired(_pollId));
+        require (pollExist(pollId) && !pollExpired(pollId));
         
         // voter cannot vote more votes than it has.
-        assert (polls[_pollId].availableVotes[msg.sender] - _votes >= 0);
+        require (polls[pollId].availableVotes[msg.sender] - votes >= 0);
         // deduct voter's available votes from.
-        polls[_pollId].availableVotes[msg.sender] -= _votes;
+        polls[pollId].availableVotes[msg.sender] -= votes;
         // place votes to voter's choice. 
-        polls[_pollId].voterVotes[msg.sender][_choice] += _votes;
-        // place votes to choiceVotes;
-        polls[_pollId].choiceVotes[_choice] += _votes;
-        emit _Vote(msg.sender, _pollId, _choice, _votes);
+        polls[pollId].votes[msg.sender][choice] += votes;
+        // place votes to totalVotesByChoice;
+        polls[pollId].totalVotesByChoice[choice] += votes;
+        emit _Vote(msg.sender, pollId, choice, votes);
     }
 
-    // @param _pollId pollId (hash value) of a
-    // @param _choice the choice of the poll
+    // @param pollId UUID (hash value) of a poll
+    // @param choice the choice of the poll
     // returns the number of votes for choice "choice" in poll "pollId"
     // typically called by other contracts
-    function getVotingResult(bytes32 _pollId, bytes32 _choice) view public returns (uint) {
+    function getVotingResult(bytes32 pollId, bytes32 choice) public view returns (uint) {
         //Check if poll exists
-        require(pollExist(_pollId));
+        require(pollExist(pollId));
 
-        return polls[_pollId].choiceVotes[_choice];
+        return polls[pollId].totalVotesByChoice[choice];
     }
 
-    // @param pollId pollId (hash value) of a
+    // @param pollId UUID (hash value) of a poll
     // @param voter address of a voter
     // @param choice the choice of the poll
     // returns the number of votes for choice "choice" by "voter" in poll "pollId"
     // typically called by other contracts
-    function getVotingResultByVoter(bytes32 _pollId, address _voter, bytes32 _choice) view public returns (uint) {
+    function getVotingResultByVoter(bytes32 pollId, address voter, bytes32 choice) 
+    public
+    view 
+    returns (uint) {
         //Check if poll exists
-        require(pollExist(_pollId));
+        require(pollExist(pollId));
 
-        return polls[_pollId].voterVotes[_voter][_choice];
+        return polls[pollId].votes[voter][choice];
     }
 
-    // @param _pollId of the poll.
+    // @param pollId of the poll.
     // returns whethere the poll exists;
-    function pollExist(bytes32 _pollId) view public returns(bool) {
-        return polls[_pollId].pollId > 0 ;
+    function pollExist(bytes32 pollId) public view returns(bool) {
+        return polls[pollId].pollId > 0 ;
     }
 
-    // @param _pollId of the poll.
+    // @param pollId of the poll.
     // returns whethere the poll has expired
-    function pollExpired(bytes32 _pollId) view public returns (bool){
-        //Check if poll exists
-        require(pollExist(_pollId));
+    function pollExpired(bytes32 pollId) public view returns (bool) {
+        // Check if poll exists
+        require(pollExist(pollId));
 
-        return block.number >= polls[_pollId].endBlock;
+        return block.number >= polls[pollId].endBlock;
     }
-
 }
