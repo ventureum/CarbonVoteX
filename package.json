@@ -18,12 +18,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/InVincible2016/CarbonVoteX.git"
+    "url": "git+https://github.com/ventureum/CarbonVoteX.git"
   },
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/InVincible2016/CarbonVoteX/issues"
+    "url": "https://github.com/ventureum/CarbonVoteX/issues"
   },
-  "homepage": "https://github.com/InVincible2016/CarbonVoteX#readme"
+  "homepage": "https://github.com/ventureum/CarbonVoteX#readme"
 }
