@@ -107,7 +107,7 @@ contract CarbonVoteX {
         // Check if poll exists.
         require (!pollExist(pollId));
         // check resonable endBlock and startBlock
-        require (startBlock > block.number && startBlock < endBlock);
+        require (startBlock < endBlock);
 
         // Create a new poll and map the poll hashed value to the poll.
         Poll memory poll = Poll({ 
