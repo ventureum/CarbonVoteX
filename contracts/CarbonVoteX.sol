@@ -32,6 +32,8 @@ contract CarbonVoteX {
         mapping (bytes32 => uint) totalVotesByChoice;
         // voter address => available votes;
         mapping (address => uint) availableVotes;
+        // map if a voter has already obtained voting right
+        mapping (address => bool) obtained;
         // map voter's address to the amount of gas sent
         mapping (address => uint) gasSentByVoter;
         uint startBlock;
@@ -126,8 +128,11 @@ contract CarbonVoteX {
     function writeAvailableVotes(bytes32 pollId, address voter, uint votes) public isMaster {
         // poll must exit and has not yet expired. 
         require (pollExist(pollId) && !pollExpired(pollId));
+        // a voter must not get vote twice.
+        require (!voteObtained(pollId,voter));
 
-        polls[pollId].availableVotes[voter] = polls[pollId].availableVotes[voter].add(votes); 
+        polls[pollId].availableVotes[voter] = polls[pollId].availableVotes[voter].add(votes);
+        polls[pollId].obtained[voter] = true;
         emit _WriteAvailableVotes(msg.sender, pollId, voter, votes);
     }
 
@@ -203,5 +208,12 @@ contract CarbonVoteX {
         require(pollExist(pollId));
 
         return block.number >= polls[pollId].endBlock;
+    }
+    
+    // @param pollId UUID (hash value) of a poll
+    // @param voter address of a voter
+    // returns whether a voter has already obtained votes.
+    function voteObtained(bytes32 pollId, address voter) public view returns (bool) {
+        return polls[pollId].obtained[voter];
     }
 }
