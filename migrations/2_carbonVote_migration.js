@@ -1,6 +1,17 @@
-var CarbonVoteX = artifacts.require("./CarbonVoteX")
-var MasterAddress = "0x161154e1ee56b1254dc54f5f36b72b86a8325e75"
+var CarbonVoteX = artifacts.require("./CarbonVoteX");
+var Web3 = require ('web3');
+var web3 = new Web3();
 
-module.exports = function (deployer){
-	deployer.deploy(CarbonVoteX, MasterAddress);
+module.exports = function (deployer, network, accounts){
+	var AuthorziedAddress = [
+	  	accounts[2],
+	  	accounts[3],
+	  	accounts[4]
+	];
+	var restrictedFunctions = [
+		web3.utils.sha3("register"),
+		web3.utils.sha3("voteFor"),
+		web3.utils.sha3("sendGas")
+	];
+	deployer.deploy(CarbonVoteX, accounts[1],restrictedFunctions, AuthorziedAddress);
 }
