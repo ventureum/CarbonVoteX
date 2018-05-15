@@ -58,6 +58,8 @@ contract CarbonVoteX is DSGuard {
      * Constructor
      */
     // @param master address which is able to write votes
+    // @param restrictedFunctions a list of the signature restricted functions
+    // @param authorizedAddr a list of authorized address
     // the master address is owned by a backend server
     constructor (
         address _master, 
@@ -77,7 +79,8 @@ contract CarbonVoteX is DSGuard {
             // user cannot permit functions that are not auth.
             // user cannot permit writeAvailableVotes
             if (functionSig[restrictedFunctions[i]] != 0 && 
-                restrictedFunctions[i] != keccak256("writeAvailableVotes")){
+                restrictedFunctions[i] != keccak256("writeAvailableVotes")
+            ){
                 permit(authorizedAddr[i], this, functionSig[restrictedFunctions[i]]);
             }    
             else {
@@ -107,6 +110,7 @@ contract CarbonVoteX is DSGuard {
     }
 
     // @param pollId UUID (hash value) of a poll
+    // a restricted function
     // store the amount of gas sent by the voter 
     function sendGas(bytes32 pollId) public payable auth {
         // poll must exit and has not yet expired. 
@@ -120,6 +124,7 @@ contract CarbonVoteX is DSGuard {
     // @param endBlock ending block (unix timestamp) of the event
     // @param pollId UUID (hash value) of a poll
     // @param tokenAddr the address of the token
+    // a restricted function
     // register a new poll
     // Note that we do not allow re-registrations for the same UUID
     function register(
@@ -148,6 +153,7 @@ contract CarbonVoteX is DSGuard {
     // @param pollId UUID (hash value) of a poll
     // @param voter address of a voter    
     // @param votes number of votes to write
+    // a restricted function
     // can only be called by the master address
     function writeAvailableVotes(bytes32 pollId, address voter, uint votes) public auth {
         // poll must exit and has not yet expired. 
@@ -172,19 +178,17 @@ contract CarbonVoteX is DSGuard {
     // @param pollId UUID (hash value) of a poll
     // @param choice the choice of votes
     // @param votes number of votes to redeem for choice
-    // After the poll finishes, and have already called registerVotes()
-    // vote for "choice"
-    // deduct the total number of votes available by votes
+    // Users can vote with choice "choice" in poll "pollId" with the amount of "votes"
     function vote(bytes32 pollId, bytes32 choice, uint votes) public {
-        voteFor(pollId,msg.sender, choice, votes);
+        voteFor(pollId, msg.sender, choice, votes);
     }
 
     // @param pollId UUID (hash value) of a poll
+    // @param voter the address of the user voting.
     // @param choice the choice of votes
     // @param votes number of votes to redeem for choice
-    // After the poll finishes, and have already called registerVotes()
-    // vote for "choice"
-    // deduct the total number of votes available by votes
+    // a restricted function
+    // Vote for "voter" with choice "choice" in poll "pollId" with the amount of "votes"
     function voteFor(bytes32 pollId, address voter,bytes32 choice, uint votes) public auth {
         // poll must exits and not yet expired. 
         require (pollExist(pollId) && !pollExpired(pollId));
