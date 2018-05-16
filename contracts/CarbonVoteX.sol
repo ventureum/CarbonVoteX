@@ -2,9 +2,9 @@ pragma solidity ^0.4.23;
 
 import "openzeppelin-solidity/contracts/token/ERC20/ERC20.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
+import "./guard.sol";
 
-
-contract CarbonVoteX {
+contract CarbonVoteX is DSGuard {
 
     // events that are emitted after changes.
     event _Register(
@@ -32,6 +32,8 @@ contract CarbonVoteX {
         mapping (bytes32 => uint) totalVotesByChoice;
         // voter address => available votes;
         mapping (address => uint) availableVotes;
+        // map if a voter has already obtained voting right
+        mapping (address => bool) obtained;
         // map voter's address to the amount of gas sent
         mapping (address => uint) gasSentByVoter;
         uint startBlock;
@@ -47,24 +49,44 @@ contract CarbonVoteX {
     // master's address
     address private master;
 
+    mapping (bytes32 => bytes4) public functionSig;
+
     // apply SafeMath to uint
     using SafeMath for uint;
-
-    /*
-     * Modifiers
-     */
-    modifier isMaster(){
-        require (msg.sender == master);
-        _;
-    }
 
     /*
      * Constructor
      */
     // @param master address which is able to write votes
+    // @param restrictedFunctions a list of the signature restricted functions
+    // @param authorizedAddr a list of authorized address
     // the master address is owned by a backend server
-    constructor (address _master) public{
+    constructor (
+        address _master, 
+        bytes32[] restrictedFunctions, 
+        address[] authorizedAddr
+    ) 
+    public {
+        // initiate functionSig mapping;
+        functionSig[keccak256("register")] = this.register.selector;
+        functionSig[keccak256("voteFor")] = this.voteFor.selector;
+        functionSig[keccak256("writeAvailableVotes")] = this.writeAvailableVotes.selector;
+        functionSig[keccak256("sendGas")] = this.sendGas.selector;
+        setAuthority(this);
         master = _master;
+        permit(master, this, this.writeAvailableVotes.selector);
+        for (uint i = 0; i < restrictedFunctions.length; i++){
+            // user cannot permit functions that are not auth.
+            // user cannot permit writeAvailableVotes
+            if (functionSig[restrictedFunctions[i]] != 0 && 
+                restrictedFunctions[i] != keccak256("writeAvailableVotes")
+            ){
+                permit(authorizedAddr[i], this, functionSig[restrictedFunctions[i]]);
+            }    
+            else {
+                revert();
+            }
+        }
     }
 
     // @param pollId UUID (hash value) of a poll
@@ -88,8 +110,9 @@ contract CarbonVoteX {
     }
 
     // @param pollId UUID (hash value) of a poll
+    // a restricted function
     // store the amount of gas sent by the voter 
-    function sendGas(bytes32 pollId) public payable {
+    function sendGas(bytes32 pollId) public payable auth {
         // poll must exit and has not yet expired. 
         require (pollExist(pollId) && !pollExpired(pollId));
 
@@ -101,9 +124,17 @@ contract CarbonVoteX {
     // @param endBlock ending block (unix timestamp) of the event
     // @param pollId UUID (hash value) of a poll
     // @param tokenAddr the address of the token
+    // a restricted function
     // register a new poll
     // Note that we do not allow re-registrations for the same UUID
-    function register(uint startBlock, uint endBlock, bytes32 pollId, address tokenAddr) public {
+    function register(
+        uint startBlock, 
+        uint endBlock, 
+        bytes32 pollId, 
+        address tokenAddr
+    ) 
+    public 
+    auth {
         // Check if poll exists.
         require (!pollExist(pollId));
         // check resonable endBlock and startBlock
@@ -122,12 +153,16 @@ contract CarbonVoteX {
     // @param pollId UUID (hash value) of a poll
     // @param voter address of a voter    
     // @param votes number of votes to write
+    // a restricted function
     // can only be called by the master address
-    function writeAvailableVotes(bytes32 pollId, address voter, uint votes) public isMaster {
+    function writeAvailableVotes(bytes32 pollId, address voter, uint votes) public auth {
         // poll must exit and has not yet expired. 
         require (pollExist(pollId) && !pollExpired(pollId));
+        // a voter must not get vote twice.
+        require (!voteObtained(pollId,voter));
 
-        polls[pollId].availableVotes[voter] = polls[pollId].availableVotes[voter].add(votes); 
+        polls[pollId].availableVotes[voter] = polls[pollId].availableVotes[voter].add(votes);
+        polls[pollId].obtained[voter] = true;
         emit _WriteAvailableVotes(msg.sender, pollId, voter, votes);
     }
 
@@ -143,25 +178,33 @@ contract CarbonVoteX {
     // @param pollId UUID (hash value) of a poll
     // @param choice the choice of votes
     // @param votes number of votes to redeem for choice
-    // After the poll finishes, and have already called registerVotes()
-    // vote for "choice"
-    // deduct the total number of votes available by votes
+    // Users can vote with choice "choice" in poll "pollId" with the amount of "votes"
     function vote(bytes32 pollId, bytes32 choice, uint votes) public {
+        voteFor(pollId, msg.sender, choice, votes);
+    }
+
+    // @param pollId UUID (hash value) of a poll
+    // @param voter the address of the user voting.
+    // @param choice the choice of votes
+    // @param votes number of votes to redeem for choice
+    // a restricted function
+    // Vote for "voter" with choice "choice" in poll "pollId" with the amount of "votes"
+    function voteFor(bytes32 pollId, address voter,bytes32 choice, uint votes) public auth {
         // poll must exits and not yet expired. 
         require (pollExist(pollId) && !pollExpired(pollId));
         
         // voter cannot vote more votes than it has.
-        require (polls[pollId].availableVotes[msg.sender].sub(votes) >= 0);
+        require (polls[pollId].availableVotes[voter].sub(votes) >= 0);
         // deduct voter's available votes from.
-        polls[pollId].availableVotes[msg.sender] = 
-            polls[pollId].availableVotes[msg.sender].sub(votes);
+        polls[pollId].availableVotes[voter] = 
+            polls[pollId].availableVotes[voter].sub(votes);
         // place votes to voter's choice. 
-        polls[pollId].votes[msg.sender][choice] = 
-            polls[pollId].votes[msg.sender][choice].add(votes);
+        polls[pollId].votes[voter][choice] = 
+            polls[pollId].votes[voter][choice].add(votes);
         // place votes to totalVotesByChoice;
         polls[pollId].totalVotesByChoice[choice] = 
             polls[pollId].totalVotesByChoice[choice].add(votes);
-        emit _Vote(msg.sender, pollId, choice, votes);
+        emit _Vote(voter, pollId, choice, votes);
     }
 
     // @param pollId UUID (hash value) of a poll
@@ -203,5 +246,12 @@ contract CarbonVoteX {
         require(pollExist(pollId));
 
         return block.number >= polls[pollId].endBlock;
+    }
+    
+    // @param pollId UUID (hash value) of a poll
+    // @param voter address of a voter
+    // returns whether a voter has already obtained votes.
+    function voteObtained(bytes32 pollId, address voter) public view returns (bool) {
+        return polls[pollId].obtained[voter];
     }
 }
