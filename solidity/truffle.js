@@ -7,7 +7,8 @@ require('babel-register')({
 require('babel-polyfill')
 
 var HDWalletProvider = require("truffle-hdwallet-provider");
-var mnemonic = "";
+let mnemonic = "";
+let providerUrl = "http://localhost:8545";
 module.exports = {
   networks: {
     development: {
@@ -15,7 +16,7 @@ module.exports = {
       port: 8545,
       network_id: "*", // Match any network id
       gas: 5000000,
-      provider: new HDWalletProvider(mnemonic, "http://localhost:8545",0, 6)
+      provider: new HDWalletProvider(mnemonic, providerUrl, 0, 6)
     }
   }
 };
