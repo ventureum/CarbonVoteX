@@ -7,10 +7,16 @@ import "./ICarbonVoteXReceiver.sol";
 import "./CarbonVoteXCore.sol";
 
 
-contract CarbonVoteXBasic is ICarbonVoteXReceiver, DSGuard {
+contract CarbonVoteXBasic is ICarbonVoteXReceiver{
 
-    event _Vote(address indexed msgSender, bytes32 pollId,bytes32 choice, uint votes);
-
+    // event _Vote(address indexed msgSender, bytes32 pollId,bytes32 choice, uint votes);
+    event _Vote(
+        address indexed msgSender, 
+        bytes32 namespace, 
+        bytes32 pollId,
+        bytes32 choice, 
+        uint votes
+    );
     // apply SafeMath to uint
     using SafeMath for uint;
 
@@ -27,7 +33,6 @@ contract CarbonVoteXBasic is ICarbonVoteXReceiver, DSGuard {
 
     // pollId => Poll struct
     mapping (bytes32 => Poll) polls;
-
     CarbonVoteXCore public core;
     bytes32 public namespace;
 
@@ -39,10 +44,10 @@ contract CarbonVoteXBasic is ICarbonVoteXReceiver, DSGuard {
     constructor (bytes32 _namespace, address coreAddr) public {
         namespace = _namespace;
         core = CarbonVoteXCore(coreAddr);
-        core.setReceiver(namespace, this);
+        // core.setReceiver(namespace, this);
 
         // permit core to call writeAvailableVotes() of this contract
-        permit(coreAddr, this, this.writeAvailableVotes.selector);
+        // permit(coreAddr, this, this.writeAvailableVotes.selector);
     }
 
     // @param startBlock starting block (unix timestamp) of the event
@@ -65,21 +70,21 @@ contract CarbonVoteXBasic is ICarbonVoteXReceiver, DSGuard {
 
     // @param pollId UUID (hash value) of a poll
     // returns the startBlock, endBlock, pollId and token address of the poll.
-    function getPoll (bytes32 pollId) public view returns (uint, uint, bytes32, address) {
+    function getPoll (bytes32 pollId) external view returns (uint, uint, bytes32, address) {
         return core.getPoll(namespace, pollId);
     }
 
     // @param pollId UUID (hash value) of a poll
     // @param voter the address of the voter
     // returns the amount of gas remining for voter
-    function getGasSent(bytes32 pollId, address voter) public view returns (uint) {
+    function getGasSent(bytes32 pollId, address voter) external view returns (uint) {
         return core.getGasSent(namespace, pollId, voter);
     }
 
     // @param pollId UUID (hash value) of a poll
     // @param voter address of a voter
     // returns the number of available votes
-    function readAvailableVotes(bytes32 pollId, address voter) public view returns (uint) {
+    function readAvailableVotes(bytes32 pollId, address voter) external view returns (uint) {
         require(pollExist(pollId));
         return polls[pollId].availableVotes[voter];
     }
@@ -88,43 +93,30 @@ contract CarbonVoteXBasic is ICarbonVoteXReceiver, DSGuard {
     // @param choice the choice of votes
     // @param votes number of votes to redeem for choice
     // Users can vote with choice "choice" in poll "pollId" with the amount of "votes"
-    function vote(bytes32 pollId, bytes32 choice, uint votes) public {
-        voteFor(pollId, msg.sender, choice, votes);
-    }
-
-   /**
-    * Vote for "voter" with choice "choice" in poll "pollId" with the amount of 
-    * "votes" with auth checking
-    * 
-    *  @param pollId UUID (hash value) of a poll
-    *  @param voter the address of the user voting
-    *  @param choice the choice of votes
-    *  @param votes number of votes to redeem for choice
-    */
-    function voteFor(bytes32 pollId, address voter,bytes32 choice, uint votes) public auth {
+    function vote(bytes32 pollId, bytes32 choice, uint votes) external {
         // poll must exits and not yet expired. 
         require(pollExist(pollId) && !pollExpired(pollId));
         
         // voter cannot vote more votes than it has.
-        require (polls[pollId].availableVotes[voter].sub(votes) >= 0);
+        require (polls[pollId].availableVotes[msg.sender].sub(votes) >= 0);
         // deduct voter's available votes from.
-        polls[pollId].availableVotes[voter] = 
-            polls[pollId].availableVotes[voter].sub(votes);
+        polls[pollId].availableVotes[msg.sender] = 
+            polls[pollId].availableVotes[msg.sender].sub(votes);
         // place votes to voter's choice. 
-        polls[pollId].votes[voter][choice] = 
-            polls[pollId].votes[voter][choice].add(votes);
+        polls[pollId].votes[msg.sender][choice] = 
+            polls[pollId].votes[msg.sender][choice].add(votes);
         // place votes to totalVotesByChoice;
         polls[pollId].totalVotesByChoice[choice] = 
             polls[pollId].totalVotesByChoice[choice].add(votes);
 
-        emit _Vote(voter, pollId, choice, votes);
+        emit _Vote(msg.sender, namespace, pollId, choice, votes);
     }
 
     // @param pollId UUID (hash value) of a poll
     // @param choice the choice of the poll
     // returns the number of votes for choice "choice" in poll "pollId"
     // typically called by other contracts
-    function getVotingResult(bytes32 pollId, bytes32 choice) public view returns (uint) {
+    function getVotingResult(bytes32 pollId, bytes32 choice) external view returns (uint) {
         //Check if poll exists
         require(pollExist(pollId));
 
@@ -137,7 +129,7 @@ contract CarbonVoteXBasic is ICarbonVoteXReceiver, DSGuard {
     // returns the number of votes for choice "choice" by "voter" in poll "pollId"
     // typically called by other contracts
     function getVotingResultByVoter(bytes32 pollId, address voter, bytes32 choice) 
-    public
+    external
     view 
     returns (uint) 
     {
@@ -165,13 +157,29 @@ contract CarbonVoteXBasic is ICarbonVoteXReceiver, DSGuard {
     // @param pollId UUID (hash value) of a poll
     // @param voter address of a voter
     // returns whether a voter has already obtained votes.
-    function voteObtained(bytes32 pollId, address voter) public view returns (bool) {
+    function voteObtained(bytes32 pollId, address voter) external view returns (bool) {
         return core.voteObtained(namespace, pollId, voter);
     }
 
-    // Interface functions
+    /**
+        returns the namespace of this CarbonVoteReceiver.
+    */
+    function getNamespace() external view returns (bytes32){
+        return namespace;
+    }
 
-    function writeAvailableVotes(bytes32 pollId, address voter, uint votes) public auth {
+    /**
+        Interface function
+        @param pollId UUID (hash value) of a poll
+        @param voter address of a voter    
+        @param votes number of votes to write
+        a restricted function
+        can only be called by the master address
+    */
+    function writeAvailableVotes(bytes32 pollId, address voter, uint votes) external {
+        require (msg.sender == address(core));
         polls[pollId].availableVotes[voter] = votes;
     }
+
+
 }

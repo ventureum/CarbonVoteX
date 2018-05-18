@@ -24,7 +24,6 @@ contract CarbonVoteXCore is DSGuard {
         address voter, 
         uint votes
     );
-    event _Vote(address indexed msgSender, bytes32 namespace, bytes32 pollId,bytes32 choice, uint votes);
     event _SendGas(address indexed msgSender, bytes32 namespace, bytes32 pollId);
     
     struct Poll {
@@ -59,22 +58,21 @@ contract CarbonVoteXCore is DSGuard {
      */
     // @param master address which is able to write votes,
     // the master address is owned by a backend server
-    // @param restrictedFunctions a list of the signature restricted functions
-    // @param authorizedAddr a list of authorized address
-    constructor (address _master)
-    public
-    {
+    constructor (address _master) public {
         // initiate functionSig mapping;
         functionSig[keccak256("register")] = this.register.selector;
         functionSig[keccak256("writeAvailableVotes")] = this.writeAvailableVotes.selector;
         functionSig[keccak256("sendGas")] = this.sendGas.selector;
         setAuthority(this);
         master = _master;
-        permit(msg.sender, this, this.setReceiver.selector);
-        permit(msg.sender, this, this.setPermissions.selector);
+        // permit(msg.sender, this, this.setReceiver.selector);
+        // permit(msg.sender, this, this.setPermissions.selector);
         permit(master, this, this.writeAvailableVotes.selector);
     }
 
+    // @param restrictedFunctions a list of the signature restricted functions
+    // @param authorizedAddr a list of authorized address
+    // grant permission to given addresses
     function setPermissions(bytes32[] restrictedFunctions, address[] authorizedAddr) public auth {
         for (uint i = 0; i < restrictedFunctions.length; i++){
             // user cannot permit functions that are not auth.
@@ -90,10 +88,14 @@ contract CarbonVoteXCore is DSGuard {
         }
     }
 
+    // @param namespace the namespace of CarbonVoteX receiver
+    // @param receiver the address of CarbonVoteX receiver
+    // map namespace to receiver address
     function setReceiver(bytes32 namespace, address receiver) public auth {
         receiverAddr[namespace] = receiver;
     }
 
+    // @param namespace the namespace of CarbonVoteX receiver
     // @param startBlock starting block (unix timestamp) of the event
     // @param endBlock ending block (unix timestamp) of the event
     // @param pollId UUID (hash value) of a poll
@@ -112,7 +114,7 @@ contract CarbonVoteXCore is DSGuard {
     auth
     {
         // Check if poll exists.
-        require (!pollExist(namespace,pollId));
+        require (!pollExist(namespace, pollId));
         // check resonable endBlock and startBlock
         require (startBlock < endBlock);
 
@@ -128,9 +130,17 @@ contract CarbonVoteXCore is DSGuard {
         emit _Register(msg.sender, namespace, pollId, startBlock, endBlock, tokenAddr);
     }
 
+    // @param namespace the namespace of CarbonVoteX receiver
     // @param pollId UUID (hash value) of a poll
     // returns the startBlock, endBlock, pollId and token address of the poll.
-    function getPoll (bytes32 namespace, bytes32 _pollId) public view returns (uint, uint, bytes32, address) {
+    function getPoll (
+        bytes32 namespace, 
+        bytes32 _pollId
+    ) 
+    public 
+    view 
+    returns (uint, uint, bytes32, address) 
+    {
         //Check if poll exists
         require(pollExist(namespace, _pollId));
 
@@ -138,16 +148,26 @@ contract CarbonVoteXCore is DSGuard {
         return (poll.startBlock, poll.endBlock, poll.pollId, poll.token);
     }
 
+    // @param namespace the namespace of CarbonVoteX receiver
     // @param pollId UUID (hash value) of a poll
     // @param voter the address of the voter
     // returns the amount of gas remining for voter
-    function getGasSent(bytes32 namespace, bytes32 pollId, address voter) public view returns (uint) {
+    function getGasSent(
+        bytes32 namespace, 
+        bytes32 pollId, 
+        address voter
+    ) 
+    public 
+    view 
+    returns (uint) 
+    {
         //Check if poll exists
         require(pollExist(namespace, pollId));
 
         return polls[namespace][pollId].gasSentByVoter[voter];
     }
 
+    // @param namespace the namespace of CarbonVoteX receiver
     // @param pollId UUID (hash value) of a poll
     // a restricted function
     // store the amount of gas sent by the voter 
@@ -160,12 +180,21 @@ contract CarbonVoteXCore is DSGuard {
         emit _SendGas(msg.sender, namespace, pollId);
     }
 
+    // @param namespace the namespace of CarbonVoteX receiver 
     // @param pollId UUID (hash value) of a poll
     // @param voter address of a voter    
     // @param votes number of votes to write
     // a restricted function
     // can only be called by the master address
-    function writeAvailableVotes(bytes32 namespace, bytes32 pollId, address voter, uint votes) public auth {
+    function writeAvailableVotes(
+        bytes32 namespace, 
+        bytes32 pollId, 
+        address voter, 
+        uint votes
+    ) 
+    public
+    auth 
+    {
         // poll must exit and has not yet expired. 
         require (pollExist(namespace, pollId) && !pollExpired(namespace, pollId));
         // a voter must not get vote twice.
@@ -177,16 +206,22 @@ contract CarbonVoteXCore is DSGuard {
             ICarbonVoteXReceiver receiver = ICarbonVoteXReceiver(receiverAddr[namespace]);
             receiver.writeAvailableVotes(pollId, voter, votes);
         }
+        else {
+            // namespace does not exist
+            revert ();
+        }
 
         emit _WriteAvailableVotes(msg.sender, namespace, pollId, voter, votes);
     }
 
+    // @param namespace the namespace of CarbonVoteX receiver 
     // @param pollId of the poll
     // returns whethere the poll exists
     function pollExist(bytes32 namespace, bytes32 pollId) public view returns(bool) {
         return polls[namespace][pollId].pollId > 0 ;
     }
 
+    // @param namespace the namespace of CarbonVoteX receiver 
     // @param pollId of the poll
     // returns whethere the poll has expired
     function pollExpired(bytes32 namespace, bytes32 pollId) public view returns (bool) {
@@ -196,10 +231,19 @@ contract CarbonVoteXCore is DSGuard {
         return block.number >= polls[namespace][pollId].endBlock;
     }
     
+    // @param namespace the namespace of CarbonVoteX receiver 
     // @param pollId UUID (hash value) of a poll
     // @param voter address of a voter
     // returns whether a voter has already obtained votes.
-    function voteObtained(bytes32 namespace, bytes32 pollId, address voter) public view returns (bool) {
+    function voteObtained(
+        bytes32 namespace, 
+        bytes32 pollId, 
+        address voter
+    ) 
+    public 
+    view 
+    returns (bool) 
+    {
         return polls[namespace][pollId].obtained[voter];
     }
 }
