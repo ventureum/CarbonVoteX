@@ -68,8 +68,8 @@ contract CarbonVoteXCore is DSGuard {
     // an array of available permissions
     bytes32[] public availablePermissions;
 
-    string constant REGISTER = "register";
-    string constant SEND_GAS = "sendGas";
+    bytes constant REGISTER = "register";
+    bytes constant SEND_GAS = "sendGas";
     /*
      * Constructor
      * @param master the address, which is able to write votes,
