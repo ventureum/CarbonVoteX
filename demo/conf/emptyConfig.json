@@ -1,0 +1,25 @@
+{
+    "mnemonic": "",
+    "provider_url": "",
+    "initial_balance" : 1000000,
+    "initial_account_number": 8,
+    "loader_url" : "https://loading.io/spinners/double-ring/lg.double-ring-spinner.gif",
+    "backend_api_url" : "",
+    "master_private_key" : "",
+    "gas_limit" : "1000000",
+    "aws": {
+        "lambda" : {
+            "function_name" : "CarbonVoteXBackendLambda",
+            "timeout" : 10,
+            "role": ""
+        },
+        "api_gateway" : {
+            "invoke_url" : ""
+        },
+        "s3" : {
+            "bucket_name" : ""
+        }
+    }
+}
+
+

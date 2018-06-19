@@ -1,0 +1,28 @@
+{
+    "mnemonic": "loop include whale off rule whip betray report grief cancel gadget park",
+    "provider_url": "https://rinkeby.infura.io/UqHrRNu1ICTS1BmmklCw",
+    "initial_balance" : 1000000,
+    "initial_account_number": 8,
+    "loader_url" : "https://loading.io/spinners/double-ring/lg.double-ring-spinner.gif",
+    "backend_api_url" : "https://k0ny1hzx6h.execute-api.us-east-1.amazonaws.com/prod/getvotes",
+    "master_private_key" : "0xc474b68da84610d7b67098639910c3f9a588e676ab8901ce4eb1a48c445ff754",
+    "gas_limit" : "1000000",
+    "aws": {
+        "access_key" : "AKIAIFRTAP7VCO6JVPRA",
+        "secret_key" : "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",
+        "region" : "ca-central-1",
+        "lambda" : {
+            "function_name" : "CarbonVoteXBackendLambda",
+            "timeout" : 10,
+            "role": "arn:aws:iam::727151012682:role/lambda_basic_execution"
+        },
+        "api_gateway" : {
+            "invoke_url" : "https://k0ny1hzx6h.execute-api.us-east-1.amazonaws.com/prod/getvotes"
+        },
+        "s3" : {
+            "bucket_name" : "dev.carbonvotex.io"
+        }
+    }
+}
+
+
